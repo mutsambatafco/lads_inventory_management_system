@@ -10,6 +10,7 @@ use App\Models\MongoDB\SystemLog;
 use App\Models\MongoDB\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class InventoryAdjustmentController extends Controller
 {
@@ -86,6 +87,7 @@ class InventoryAdjustmentController extends Controller
             return $adj;
         });
 
+        try { Cache::tags(['products', 'dashboard'])->flush(); } catch (\Throwable $e) {}
         return response()->json($adjustment, 201);
     }
 }

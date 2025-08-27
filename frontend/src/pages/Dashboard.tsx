@@ -106,7 +106,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Inventory by Category</h3>
-          <div className="h-64">
+          <div className="h-96">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -115,7 +115,7 @@ export default function Dashboard() {
                   cy="50%"
                   labelLine={false}
                   label={({ name, value }) => `${name} (${value})`}
-                  outerRadius={80}
+                  outerRadius={120}
                   fill="#8884d8"
                   dataKey="count"
                 >
@@ -131,7 +131,7 @@ export default function Dashboard() {
 
         <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Category Overview</h3>
-          <div className="h-64">
+          <div className="h-96">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stats.categories}>
                 <CartesianGrid strokeDasharray="3 3" />

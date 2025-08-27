@@ -59,3 +59,27 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+# Caching with Redis
+
+Configure Redis in your `.env`:
+
+```
+CACHE_STORE=redis
+REDIS_CLIENT=phpredis
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+```
+
+Ensure Redis server is running. On Windows with Docker:
+
+```
+docker run -p 6379:6379 --name redis -d redis:7-alpine
+```
+
+Endpoints cached:
+- Products index/show (tags: products, categories)
+- Categories index (tag: categories)
+- Dashboard summary (tags: dashboard, products, categories)
+
+Caches are invalidated automatically on product/category create/update/delete and inventory adjustments.

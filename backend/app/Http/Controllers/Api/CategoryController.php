@@ -7,12 +7,19 @@ use App\Models\Category;
 use App\Models\MongoDB\ActivityLog;
 use App\Models\MongoDB\SystemLog;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class CategoryController extends Controller
 {
     public function index()
     {
-        $categories = Category::query()->withProductCount()->orderBy('name')->get();
+        try {
+            $categories = Cache::tags(['categories'])->remember('categories:index', now()->addMinutes(60), function () {
+                return Category::query()->withProductCount()->orderBy('name')->get();
+            });
+        } catch (\Throwable $e) {
+            $categories = Category::query()->withProductCount()->orderBy('name')->get();
+        }
         return response()->json($categories);
     }
 
@@ -35,6 +42,7 @@ class CategoryController extends Controller
             'description' => 'Category created',
         ]);
         SystemLog::log('info', 'Category created', ['category_id' => $category->id]);
+        try { Cache::tags(['categories', 'products', 'dashboard'])->flush(); } catch (\Throwable $e) {}
         return response()->json($category, 201);
     }
 
@@ -66,6 +74,7 @@ class CategoryController extends Controller
             'description' => 'Category updated',
         ]);
         SystemLog::log('info', 'Category updated', ['category_id' => $category->id]);
+        try { Cache::tags(['categories', 'products', 'dashboard'])->flush(); } catch (\Throwable $e) {}
         return response()->json($category);
     }
 
@@ -87,6 +96,7 @@ class CategoryController extends Controller
             'description' => 'Category deleted',
         ]);
         SystemLog::log('warning', 'Category deleted', ['category_id' => $category->id]);
+        try { Cache::tags(['categories', 'products', 'dashboard'])->flush(); } catch (\Throwable $e) {}
         return response()->json(['message' => 'Deleted']);
     }
 }

@@ -7,10 +7,24 @@ use App\Models\Product;
 use App\Models\Category;
 use App\Models\MongoDB\ActivityLog;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardController extends Controller
 {
     public function summary()
+    {
+        try {
+            $summary = Cache::tags(['dashboard', 'products', 'categories'])->remember('dashboard:summary', now()->addMinutes(2), function () {
+                return $this->buildSummary();
+            });
+        } catch (\Throwable $e) {
+            $summary = $this->buildSummary();
+        }
+
+        return response()->json($summary);
+    }
+
+    private function buildSummary(): array
     {
         $totalItems = Product::count();
         $totalValue = (float) Product::sum(DB::raw('current_quantity * unit_price'));
@@ -35,14 +49,14 @@ class DashboardController extends Controller
             ])
             ->values();
 
-        return response()->json([
+        return [
             'totalItems' => $totalItems,
             'totalValue' => $totalValue,
             'lowStockItems' => $lowStockItems,
             'outOfStockItems' => $outOfStockItems,
             'categories' => $categories,
             'recentActivity' => $recentActivity,
-        ]);
+        ];
     }
 }
 

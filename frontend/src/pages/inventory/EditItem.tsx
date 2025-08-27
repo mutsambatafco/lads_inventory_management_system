@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import { useInventory } from '../../hooks/useInventory';
@@ -7,7 +7,7 @@ import { CategoriesApi } from '../../lib/api';
 export default function EditItem() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { getItemById, updateItem } = useInventory();
+  const { getItemById, updateItem, loading: inventoryLoading } = useInventory();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -23,8 +23,9 @@ export default function EditItem() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Array<{ id: number; name: string }>>([]);
+  const [saving, setSaving] = useState(false);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
     (async () => {
@@ -33,27 +34,39 @@ export default function EditItem() {
         setCategories(data);
       } catch {}
     })();
-    if (id) {
-      const item = getItemById(id);
-      if (item) {
-        setFormData({
-          name: item.name,
-          description: item.description,
-          sku: item.sku,
-          category: item.category, // will be category id if fetched via API list mapping
-          quantity: item.quantity,
-          minStock: item.minStock,
-          maxStock: item.maxStock,
-          unitPrice: item.unitPrice,
-          supplier: item.supplier,
-          location: item.location
-        });
-      } else {
-        navigate('/inventory');
+  }, []);
+
+  useEffect(() => {
+    if (!id) return;
+    if (inventoryLoading) return; // wait for items to load
+    if (initializedRef.current) return; // prevent resetting while typing
+
+    const item = getItemById(id);
+    if (item) {
+      // Resolve category to id string if possible
+      let categoryValue = item.category;
+      if (!/^\d+$/.test(categoryValue) && categories.length > 0) {
+        const match = categories.find(c => c.name === categoryValue);
+        if (match) categoryValue = String(match.id);
       }
+      setFormData({
+        name: item.name,
+        description: item.description,
+        sku: item.sku,
+        category: categoryValue,
+        quantity: item.quantity,
+        minStock: item.minStock,
+        maxStock: item.maxStock,
+        unitPrice: item.unitPrice,
+        supplier: item.supplier,
+        location: item.location
+      });
+      initializedRef.current = true;
+    } else {
+      // If not found after inventory loaded, go back to list
+      navigate('/inventory');
     }
-    setLoading(false);
-  }, [id, getItemById, navigate]);
+  }, [id, inventoryLoading, categories, getItemById, navigate]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -72,12 +85,17 @@ export default function EditItem() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (validateForm() && id) {
-      updateItem(id, formData);
+    if (!(validateForm() && id)) return;
+    try {
+      setSaving(true);
+      await updateItem(id, formData);
       navigate('/inventory');
+    } catch (err: any) {
+      alert(err?.message || 'Failed to update item');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -96,7 +114,7 @@ export default function EditItem() {
     }
   };
 
-  if (loading) {
+  if (inventoryLoading || !initializedRef.current) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-gray-500">Loading...</div>
@@ -323,10 +341,11 @@ export default function EditItem() {
             </button>
             <button
               type="submit"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={saving}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               <Save className="h-4 w-4 mr-2" />
-              Update Item
+              {saving ? 'Updating...' : 'Update Item'}
             </button>
           </div>
         </div>
