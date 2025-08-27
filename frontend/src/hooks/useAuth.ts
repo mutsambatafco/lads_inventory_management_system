@@ -1,5 +1,6 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { User } from '../types/inventory';
+import { AuthApi } from '../lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -23,55 +24,72 @@ export const useAuthProvider = () => {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
+    const savedToken = localStorage.getItem('authToken');
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
+    if (savedToken && !savedUser) {
+      AuthApi.me().then((me) => {
+        const normalized: User = {
+          id: String(me.id),
+          email: me.email,
+          name: me.name,
+          role: (me.role || 'admin') as 'admin' | 'user',
+          createdAt: me.created_at,
+        };
+        setUser(normalized);
+        localStorage.setItem('currentUser', JSON.stringify(normalized));
+      }).catch(() => {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
+      });
+    }
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Mock authentication - in real app, this would be an API call
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const foundUser = users.find((u: any) => u.email === email && u.password === password);
-    
-    if (foundUser) {
-      const { password: _, ...userWithoutPassword } = foundUser;
-      setUser(userWithoutPassword);
-      localStorage.setItem('currentUser', JSON.stringify(userWithoutPassword));
+    try {
+      const { token, user: me } = await AuthApi.login(email, password);
+      localStorage.setItem('authToken', token);
+      const normalized: User = {
+        id: String(me.id),
+        email: me.email,
+        name: me.name,
+        role: (me.role || 'admin') as 'admin' | 'user',
+        createdAt: me.created_at,
+      };
+      setUser(normalized);
+      localStorage.setItem('currentUser', JSON.stringify(normalized));
       return true;
+    } catch (e) {
+      return false;
     }
-    return false;
   };
 
   const register = async (email: string, password: string, name: string): Promise<boolean> => {
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    
-    // Check if user already exists
-    if (users.some((u: any) => u.email === email)) {
+    try {
+      const { token, user: me } = await AuthApi.register(name, email, password);
+      localStorage.setItem('authToken', token);
+      const normalized: User = {
+        id: String(me.id),
+        email: me.email,
+        name: me.name,
+        role: (me.role || 'admin') as 'admin' | 'user',
+        createdAt: me.created_at,
+      };
+      setUser(normalized);
+      localStorage.setItem('currentUser', JSON.stringify(normalized));
+      return true;
+    } catch (e) {
       return false;
     }
-
-    const newUser = {
-      id: Date.now().toString(),
-      email,
-      password,
-      name,
-      role: 'admin' as const,
-      createdAt: new Date().toISOString(),
-    };
-
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
-
-    const { password: _, ...userWithoutPassword } = newUser;
-    setUser(userWithoutPassword);
-    localStorage.setItem('currentUser', JSON.stringify(userWithoutPassword));
-    return true;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try { await AuthApi.logout(); } catch {}
     setUser(null);
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('authToken');
   };
 
   const updateProfile = (updates: Partial<User>) => {
@@ -79,14 +97,6 @@ export const useAuthProvider = () => {
       const updatedUser = { ...user, ...updates };
       setUser(updatedUser);
       localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-      
-      // Update in users array
-      const users = JSON.parse(localStorage.getItem('users') || '[]');
-      const userIndex = users.findIndex((u: any) => u.id === user.id);
-      if (userIndex !== -1) {
-        users[userIndex] = { ...users[userIndex], ...updates };
-        localStorage.setItem('users', JSON.stringify(users));
-      }
     }
   };
 

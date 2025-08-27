@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Package, 
   TrendingUp, 
@@ -8,13 +8,25 @@ import {
   ShoppingCart
 } from 'lucide-react';
 import { useInventory } from '../hooks/useInventory';
+import { DashboardApi } from '../lib/api';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
 
 export default function Dashboard() {
   const { getStats } = useInventory();
-  const stats = getStats();
+  const [stats, setStats] = useState(getStats());
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const s = await DashboardApi.summary();
+        if (!cancelled) setStats(s);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {

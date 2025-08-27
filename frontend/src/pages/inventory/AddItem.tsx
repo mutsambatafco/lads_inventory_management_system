@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import { useInventory } from '../../hooks/useInventory';
+import { CategoriesApi } from '../../lib/api';
 
 export default function AddItem() {
   const navigate = useNavigate();
@@ -21,17 +22,18 @@ export default function AddItem() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [categories, setCategories] = useState<Array<{ id: number; name: string }>>([]);
 
-  const categories = [
-    'Electronics',
-    'Furniture',
-    'Accessories',
-    'Clothing',
-    'Books',
-    'Sports',
-    'Home & Garden',
-    'Other'
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await CategoriesApi.list();
+        if (!cancelled) setCategories(data);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -63,8 +65,8 @@ export default function AddItem() {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name.includes('Price') || name.includes('quantity') || name.includes('Stock') 
-        ? parseFloat(value) || 0 
+      [name]: (name === 'unitPrice' || name === 'quantity' || name === 'minStock' || name === 'maxStock')
+        ? parseFloat(value) || 0
         : value
     }));
 
@@ -158,8 +160,8 @@ export default function AddItem() {
                 }`}
               >
                 <option value="">Select a category</option>
-                {categories.map(category => (
-                  <option key={category} value={category}>{category}</option>
+                {categories.map(c => (
+                  <option key={c.id} value={String(c.id)}>{c.name}</option>
                 ))}
               </select>
               {errors.category && <p className="mt-1 text-sm text-red-600">{errors.category}</p>}

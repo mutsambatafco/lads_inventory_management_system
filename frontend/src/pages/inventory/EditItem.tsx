@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import { useInventory } from '../../hooks/useInventory';
+import { CategoriesApi } from '../../lib/api';
 
 export default function EditItem() {
   const navigate = useNavigate();
@@ -23,19 +24,15 @@ export default function EditItem() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-
-  const categories = [
-    'Electronics',
-    'Furniture',
-    'Accessories',
-    'Clothing',
-    'Books',
-    'Sports',
-    'Home & Garden',
-    'Other'
-  ];
+  const [categories, setCategories] = useState<Array<{ id: number; name: string }>>([]);
 
   useEffect(() => {
+    (async () => {
+      try {
+        const data = await CategoriesApi.list();
+        setCategories(data);
+      } catch {}
+    })();
     if (id) {
       const item = getItemById(id);
       if (item) {
@@ -43,7 +40,7 @@ export default function EditItem() {
           name: item.name,
           description: item.description,
           sku: item.sku,
-          category: item.category,
+          category: item.category, // will be category id if fetched via API list mapping
           quantity: item.quantity,
           minStock: item.minStock,
           maxStock: item.maxStock,
@@ -88,8 +85,8 @@ export default function EditItem() {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name.includes('Price') || name.includes('quantity') || name.includes('Stock') 
-        ? parseFloat(value) || 0 
+      [name]: (name === 'unitPrice' || name === 'quantity' || name === 'minStock' || name === 'maxStock')
+        ? parseFloat(value) || 0
         : value
     }));
 
@@ -191,8 +188,8 @@ export default function EditItem() {
                 }`}
               >
                 <option value="">Select a category</option>
-                {categories.map(category => (
-                  <option key={category} value={category}>{category}</option>
+                {categories.map(c => (
+                  <option key={c.id} value={String(c.id)}>{c.name}</option>
                 ))}
               </select>
               {errors.category && <p className="mt-1 text-sm text-red-600">{errors.category}</p>}

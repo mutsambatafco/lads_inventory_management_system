@@ -1,71 +1,34 @@
 import { useState, useEffect } from 'react';
 import { InventoryItem, InventoryStats } from '../types/inventory';
+import { ProductsApi } from '../lib/api';
 
 const STORAGE_KEY = 'inventoryItems';
-
-// Sample data for demonstration
-const sampleData: InventoryItem[] = [
-  {
-    id: '1',
-    name: 'Wireless Headphones',
-    description: 'Premium noise-cancelling wireless headphones',
-    sku: 'WH-001',
-    category: 'Electronics',
-    quantity: 45,
-    minStock: 10,
-    maxStock: 100,
-    unitPrice: 199.99,
-    supplier: 'Tech Supplier Co.',
-    location: 'Warehouse A-1',
-    lastUpdated: new Date().toISOString(),
-    status: 'in-stock'
-  },
-  {
-    id: '2',
-    name: 'Office Chair',
-    description: 'Ergonomic office chair with lumbar support',
-    sku: 'OC-002',
-    category: 'Furniture',
-    quantity: 5,
-    minStock: 8,
-    maxStock: 50,
-    unitPrice: 299.99,
-    supplier: 'Office Furniture Ltd.',
-    location: 'Warehouse B-2',
-    lastUpdated: new Date().toISOString(),
-    status: 'low-stock'
-  },
-  {
-    id: '3',
-    name: 'Smartphone Case',
-    description: 'Protective case for latest smartphone models',
-    sku: 'SC-003',
-    category: 'Accessories',
-    quantity: 0,
-    minStock: 15,
-    maxStock: 200,
-    unitPrice: 24.99,
-    supplier: 'Mobile Accessories Inc.',
-    location: 'Warehouse A-3',
-    lastUpdated: new Date().toISOString(),
-    status: 'out-of-stock'
-  },
-];
 
 export function useInventory() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedItems = localStorage.getItem(STORAGE_KEY);
-    if (savedItems) {
-      setItems(JSON.parse(savedItems));
-    } else {
-      // Initialize with sample data
-      setItems(sampleData);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sampleData));
-    }
-    setLoading(false);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await ProductsApi.list();
+        const dataArray = Array.isArray(res.data) ? res.data : (res.data ?? res); // support paginate
+        const mapped: InventoryItem[] = dataArray.map(mapProductToInventoryItem);
+        if (!cancelled) {
+          setItems(mapped);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+        }
+      } catch (e) {
+        const savedItems = localStorage.getItem(STORAGE_KEY);
+        if (savedItems && !cancelled) {
+          setItems(JSON.parse(savedItems));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const saveItems = (newItems: InventoryItem[]) => {
@@ -83,30 +46,25 @@ export function useInventory() {
     return { ...item, status, lastUpdated: new Date().toISOString() };
   };
 
-  const addItem = (item: Omit<InventoryItem, 'id' | 'lastUpdated' | 'status'>) => {
-    const newItem = updateItemStatus({
-      ...item,
-      id: Date.now().toString(),
-      lastUpdated: new Date().toISOString(),
-      status: 'in-stock'
-    });
+  const addItem = async (item: Omit<InventoryItem, 'id' | 'lastUpdated' | 'status'>) => {
+    const payload = mapInventoryItemToProductInput(item);
+    const created = await ProductsApi.create(payload);
+    const newItem = mapProductToInventoryItem(created);
     const newItems = [...items, newItem];
     saveItems(newItems);
     return newItem;
   };
 
-  const updateItem = (id: string, updates: Partial<InventoryItem>) => {
-    const newItems = items.map(item => {
-      if (item.id === id) {
-        const updatedItem = { ...item, ...updates };
-        return updateItemStatus(updatedItem);
-      }
-      return item;
-    });
+  const updateItem = async (id: string, updates: Partial<InventoryItem>) => {
+    const payload = mapInventoryItemToProductInput(updates as any);
+    const updated = await ProductsApi.update(id, payload);
+    const updatedItem = mapProductToInventoryItem(updated);
+    const newItems = items.map(i => i.id === id ? updatedItem : i);
     saveItems(newItems);
   };
 
-  const deleteItem = (id: string) => {
+  const deleteItem = async (id: string) => {
+    await ProductsApi.remove(id);
     const newItems = items.filter(item => item.id !== id);
     saveItems(newItems);
   };
@@ -160,4 +118,43 @@ export function useInventory() {
     getItemById,
     getStats
   };
+}
+
+function mapProductToInventoryItem(p: any): InventoryItem {
+  const statusMap: Record<string, InventoryItem['status']> = {
+    in_stock: 'in-stock',
+    low_stock: 'low-stock',
+    out_of_stock: 'out-of-stock',
+    overstocked: 'in-stock',
+  };
+  return {
+    id: String(p.id),
+    name: p.name,
+    description: p.description ?? '',
+    sku: p.sku,
+    category: p.category?.name ?? String(p.category_id ?? ''),
+    quantity: Number(p.current_quantity ?? 0),
+    minStock: Number(p.min_stock_level ?? 0),
+    maxStock: Number(p.max_stock_level ?? 0),
+    unitPrice: Number(p.unit_price ?? 0),
+    supplier: p.supplier_name ?? '',
+    location: p.storage_location ?? '',
+    lastUpdated: p.updated_at ?? p.created_at ?? new Date().toISOString(),
+    status: statusMap[p.stock_status as string] ?? 'in-stock',
+  };
+}
+
+function mapInventoryItemToProductInput(item: Partial<InventoryItem>) {
+  const payload: any = {};
+  if (item.name !== undefined) payload.name = item.name;
+  if (item.description !== undefined) payload.description = item.description;
+  if (item.sku !== undefined) payload.sku = item.sku;
+  if (item.category !== undefined) payload.category_id = Number(item.category); // expect id string -> number
+  if (item.quantity !== undefined) payload.current_quantity = Number(item.quantity);
+  if (item.minStock !== undefined) payload.min_stock_level = Number(item.minStock);
+  if (item.maxStock !== undefined) payload.max_stock_level = Number(item.maxStock);
+  if (item.unitPrice !== undefined) payload.unit_price = Number(item.unitPrice);
+  if (item.supplier !== undefined) payload.supplier_name = item.supplier;
+  if (item.location !== undefined) payload.storage_location = item.location;
+  return payload;
 }
