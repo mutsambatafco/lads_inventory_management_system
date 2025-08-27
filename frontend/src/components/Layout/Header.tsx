@@ -19,7 +19,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
           >
             <Menu className="h-6 w-6" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">Inventory Manager</h1>
+          <h1 className="text-xl font-bold text-gray-900">Inventory Manager</h1>
         </div>
         
         <div className="flex items-center space-x-4">

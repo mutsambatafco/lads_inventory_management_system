@@ -42,7 +42,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         } fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}
       >
         <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
-          <span className="text-xl font-bold text-gray-900">InvManager</span>
+          {/* <span className="text-xl font-bold text-gray-900">InvManager</span> */}
+          <img src="./imageedit_5_3463869995.png" width={80} height={80}/>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 lg:hidden"

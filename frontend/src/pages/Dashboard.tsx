@@ -45,7 +45,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div>
         <h2 className="text-3xl font-bold text-gray-900">Dashboard</h2>
         <p className="mt-2 text-gray-600">Welcome back! Here's what's happening with your inventory.</p>

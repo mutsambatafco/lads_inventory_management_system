@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, Lock, Mail } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import GridDistortion from '../../components/Backgrounds/GridDistortion/GridDistortion';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -23,13 +24,31 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      {/* Background - Top Half */}
+      <div className="absolute inset-x-0 top-0 h-1/2 z-0">
+        <div className="h-full bg-gradient-to-b from-blue-600 to-transparent"></div>
+      </div>
+      
+      {/* GridDistortion Background - Bottom Half */}
+      <div className="absolute inset-x-0 bottom-0 h-1/2 z-0">
+        <GridDistortion
+          imageSrc="./ios-blue-background-texture-curves-digital-art-stock-2560x1440-6784.jpg"
+          grid={10}
+          mouse={0.1}
+          strength={0.15}
+          relaxation={0.9}
+          className="w-full h-full"
+        />
+      </div>
+
+      {/* Login Form - Centered on Top of Background */}
+      <div className="relative z-10 max-w-md w-full space-y-8 bg-white/90 backdrop-blur-md rounded-xl p-8 shadow-2xl border border-white/20 mx-4">
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-blue-600 rounded-full flex items-center justify-center">
-            <Package className="h-8 w-8 text-white" />
+          <div className="mx-auto h-36 w-36 rounded-full flex items-center justify-center">
+            <img src="./imageedit_5_3463869995.png" />
           </div>
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-2xl font-extrabold text-gray-900">
             Sign in to your account
           </h2>
           <p className="mt-2 text-sm text-gray-600">
@@ -104,12 +123,6 @@ export default function Login() {
             >
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
-          </div>
-
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              Demo credentials: admin@example.com / password
-            </p>
           </div>
         </form>
       </div>
